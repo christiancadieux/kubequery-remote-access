@@ -7,9 +7,7 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR GPL-2.0-only)
 
-ifeq ($(VERSION),)
-	VERSION := $(shell git describe --tags HEAD | cut -d'-' -f1-2 | sed 's/-/./')
-endif
+VERSION := "1.1.1-remote"
 
 all: deps lint test build kubequery.yaml
 
@@ -23,6 +21,7 @@ lint:
 	@golint ./...
 
 build: deps
+	echo ${VERSION}
 	@go build -ldflags="-s -w -X main.VERSION=${VERSION}" -o bin ./...
 
 test:

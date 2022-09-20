@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,7 +33,31 @@ var (
 	clusterName string
 )
 
+func UserConfig(token, addr string) *rest.Config{
+
+	timeout := 10
+
+	tlsConfig := rest.TLSClientConfig{Insecure: true}
+
+	kubeConfig := &rest.Config{
+		Host:            addr,
+		BearerToken:     token,
+		TLSClientConfig: tlsConfig,
+		QPS:             250,
+		Burst:           1000,
+		Timeout:         time.Duration(timeout) * time.Second,
+	}
+
+	return kubeConfig
+}
+
+
 func initClientset(config *rest.Config) error {
+	var err error
+	if os.Getenv("KQ_TOKEN") != "" && os.Getenv("KQ_ADDR") != "" {
+		config = UserConfig(os.Getenv("KQ_TOKEN"), os.Getenv("KQ_ADDR"))
+	}
+
 	if config == nil {
 		conf, err := rest.InClusterConfig()
 		if err != nil {
@@ -52,7 +77,6 @@ func initClientset(config *rest.Config) error {
 	// Suppress deprecation warnings
 	config.WarningHandler = rest.NoWarnings{}
 
-	var err error
 	clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		return err
@@ -64,6 +88,12 @@ func initUID() error {
 	ks, err := GetClient().CoreV1().Namespaces().Get(context.TODO(), "kube-system", v1.GetOptions{})
 	if err != nil {
 		return err
+	}
+
+	if os.Getenv("KQ_CLUSTER_NAME") != "" &&  os.Getenv("KQ_CLUSTER_UID") != ""{
+		clusterName = os.Getenv("KQ_CLUSTER_NAME")
+		clusterUID = types.UID(os.Getenv("KQ_CLUSTER_UID"))
+		return nil
 	}
 
 	clusterUID = ks.UID
